@@ -1,0 +1,172 @@
+import pandas as pd
+import numpy as np
+import ast
+import random
+from operator import itemgetter
+from collections import Counter
+from sklearn.metrics import confusion_matrix, classification_report
+import matplotlib.pyplot as plt
+
+
+
+
+# calculating labels and euclidian distances for trainig dataset w.r.t test dataset
+def calculate_distance(test_data, train_data, train_label):
+    
+    distances = [] 
+    for i in range(test_data.shape[0]):
+       
+        euclidian_distances = (np.sqrt(np.sum(test_data[i]-train_data, axis = 1)**2))
+        euclidian_distances = np.array(euclidian_distances).reshape(train_data.shape[0], 1)
+        classes = np.array(train_label)
+        classes = classes.reshape(train_label.shape[0], 1)
+        distances_i = np.append(euclidian_distances, classes, axis=1)
+        distances.append(sorted(distances_i,key=itemgetter(0)))
+        
+    
+    euclidian_distances = []
+    classes = []
+    distances_i = []
+    return distances
+
+# calculating acuracy of prediction of test dataset
+def calculate_accuracy(test_label, predicted_label):
+    true_positive = 0
+    for i in range(len(predicted_label)):
+        if(test_label[i] == predicted_label[i]):
+            true_positive = true_positive + 1
+    accuracy = (true_positive/len(test_label))*100
+    return accuracy
+
+#predicting labels from common nearest samples
+def calculate_prediction(distances,k):
+    predicted_results =[]
+   
+    for i in range(len(distances)):
+        chooseOne = []
+        for j in range(k):
+            chooseOne.append(distances[i][j][1])
+        predicted_results.append(Counter(chooseOne).most_common(1)[0][0])
+
+    return predicted_results
+        
+
+       
+            
+            
+
+def main():
+    #loading dataset
+    dataset = pd.read_csv('breast_cancer_bd.csv',index_col = 0)
+    dataset.replace('?', -9999, inplace=True)
+    dataset = dataset.applymap(np.int64)
+    
+    # shuffling and dividing data into test and train datasets
+    shuffle_data = dataset.sample(frac=1)
+    train_size= int(0.75*len(dataset))
+    test_size= int(0.25*len(dataset))
+    train_data = shuffle_data[:train_size]
+    test_data = shuffle_data[train_size:]
+    
+    # separting out label values from test and train dataset
+    train_label = train_data.iloc[:,-1].values
+    test_label = test_data.iloc[:,-1].values
+    
+    #dropiing out labels from test and train dataset
+    train_data = train_data.iloc[:,:-1]
+    test_data = test_data.iloc[:,:-1]
+    
+    test_data = np.array(test_data)
+    train_data = np.array(train_data)
+    
+    
+    error_rate = []
+
+    # finding error rate to find k
+    for i in range(1,10):
+        
+        distance_1 = calculate_distance(test_data, train_data, train_label)
+        pred_i = calculate_prediction(distance_1,i)
+        error_rate.append(np.mean(pred_i != test_label))
+        distance_1 = []
+        pred_i = []
+        
+    print(error_rate)
+        
+    
+    #plotting error rate vs K
+    plt.figure(figsize=(10,6))
+    plt.plot(range(1,10),error_rate,color='blue', marker='o',
+         markerfacecolor='red', markersize=10)
+    plt.title('Error Rate vs. K Value')
+    plt.xlabel('K')
+    plt.ylabel('Error Rate')
+    plt.show()
+    
+    #taking minimum error rate as K
+    k = error_rate.index(min(error_rate))
+    k = k+1
+    print(k)
+    
+    
+    distance = calculate_distance(test_data,train_data,train_label)
+    predicted_labels = calculate_prediction(distance,k)
+    accuracy = 0.0
+    accuracy = calculate_accuracy(test_label, predicted_labels)
+    print("Accuracy of KNN for K = "+str(k)+" is "+ str(accuracy)+"%")
+    
+    # calculating confusion matrix
+    cm=confusion_matrix(test_label, predicted_labels)
+    print("confusion Matrix")
+    print(cm)
+    accuracy2 = (cm[0,0]+cm[1,1])/np.sum(cm)
+   
+    
+    TrueP,TrueN,FalseP,FalseN = 0,0,0,0
+    for i in range(len(predicted_labels)):
+        if (predicted_labels[i] == 2 and test_label[i] == 2):
+            TrueP = TrueP+1
+        elif (predicted_labels[i] == 4 and test_label[i] == 4 ):
+            TrueN = TrueN+1
+        elif (predicted_labels[i] == 2 and test_label[i] == 4 ):
+            FalseP = FalseP +1
+        else:
+            FalseN = FalseN +1
+
+
+
+#precision for label 2
+    precision = float(TrueP)/(TrueP+FalseP)
+#recall for label 2
+    recall = float(TrueP)/(TrueP+FalseN)
+    print ("Precision for Label 2 is %.2f" % precision)
+    print ("Recall for Label 2 is %.2f" % recall)
+    
+    
+    TrueP1,TrueN1,FalseP1,FalseN1 = 0,0,0,0
+    for i in range(len(predicted_labels)):
+        if (predicted_labels[i] == 4 and test_label[i] == 4):
+            TrueP1 = TrueP1 + 1
+        elif (predicted_labels[i] == 2 and test_label[i] == 2 ):
+            TrueN1 = TrueN1 + 1
+        elif (predicted_labels[i] == 4 and test_label[i] == 2 ):
+            FalseP1 = FalseP1 + 1
+        else:
+            FalseN1 = FalseN1 + 1
+#precision fir label 4            
+    precision_4 = float(TrueP1)/(TrueP1+FalseP1)
+#recall for label 4
+    recall_4 = float(TrueP1)/(TrueP1+FalseN1)
+    print ("Precision for Label 4 is %.2f" % precision_4)
+    print ("Recall for Label 4 is %.2f" % recall_4)
+
+    
+    
+  
+
+
+
+
+
+if __name__ == "__main__":
+    main()    
